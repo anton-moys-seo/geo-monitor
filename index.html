@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>GEO-монитор: снапшот</title>
+<style>
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;margin:0;
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:#f3f4f9;color:#121433}
+  .card{max-width:440px;background:#fff;border:1px solid #d9dce8;border-radius:12px;
+    padding:32px;box-shadow:0 8px 24px rgba(18,20,51,.08)}
+  h1{font-size:20px;margin:0 0 8px}
+  p{color:#5d6483;line-height:1.5;margin:8px 0;font-size:14px}
+  input{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #c6cbdc;
+    border-radius:8px;font-size:14px;margin-top:12px}
+  button{width:100%;padding:10px 12px;margin-top:10px;border:0;border-radius:8px;
+    background:#5b3df5;color:#fff;font-size:14px;cursor:pointer}
+  .err{color:#c92f35;font-size:13px;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>GEO-монитор · снапшот от 06.11.2026</h1>
+  <p>Это зашифрованный снимок инструмента GEO-монитор. Откройте ссылку,
+  которой поделилась команда — ключ доступа находится в ней после
+  <code>#k=</code> и расшифровывает данные прямо в браузере.</p>
+  <p>Если у вас только ключ, вставьте его сюда:</p>
+  <input id="key" placeholder="Ключ доступа" autocomplete="off">
+  <button onclick="withKey()">Открыть отчёт</button>
+  <div class="err" id="msg" hidden></div>
+</div>
+<script>
+function withKey(){
+  var k=document.getElementById('key').value.trim();
+  var m=document.getElementById('msg');
+  if(!k){m.textContent='Введите ключ.';m.hidden=false;return}
+  sessionStorage.setItem('geoKey',k);
+  location.hash='k='+encodeURIComponent(k);
+  load('c2-overview');
+}
+</script>
+<script src="assets/router.js"></script>
+</body>
+</html>
