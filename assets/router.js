@@ -120,14 +120,96 @@
       });
   }
 
+  // Фильтры ответов выполняются по всем строкам выбранного среза снимка.
+  var answerForm = document.querySelector('.answer-filters');
+  if (answerForm && document.querySelector('.feed-item[data-brand]')) {
+    function filterAnswers() {
+      var brand = answerForm.querySelector('[name=brand]:checked')?.value || '';
+      var tone = answerForm.querySelector('[name=tone]:checked')?.value || '';
+      var cited = answerForm.querySelector('[name=cited]:checked')?.value || '';
+      var rows = document.querySelectorAll('.feed-item[data-brand]');
+      var count = 0;
+      rows.forEach(function (row) {
+        var show = (!brand || row.dataset.brand === brand) &&
+          (!tone || row.dataset.tone === tone) && (!cited || row.dataset.cited === cited);
+        row.hidden = !show;
+        row.style.display = show ? '' : 'none';
+        if (show) count++;
+      });
+      answerForm.querySelectorAll('label').forEach(function (label) {
+        var radio = label.querySelector('input[type=radio]');
+        if (radio) label.classList.toggle('on', radio.checked);
+      });
+      var counter = document.querySelector('.pagehead .sub b');
+      if (counter) counter.textContent = count.toLocaleString('ru-RU');
+      var empty = document.getElementById('snapshot-empty-answers');
+      if (empty) empty.hidden = count !== 0;
+    }
+    var emptyAnswers = document.createElement('div');
+    emptyAnswers.id = 'snapshot-empty-answers';
+    emptyAnswers.className = 'empty';
+    emptyAnswers.textContent = 'Ничего не найдено. Попробуйте убрать часть фильтров.';
+    emptyAnswers.hidden = true;
+    document.querySelector('.feed').appendChild(emptyAnswers);
+    answerForm.addEventListener('change', filterAnswers);
+    filterAnswers();
+  }
+
+  var kindFilter = document.querySelector('.filterbar input[name=kind]');
+  if (kindFilter) {
+    kindFilter.form.addEventListener('change', function (e) {
+      if (e.target.name !== 'kind') return;
+      var page = currentPage() || DEFAULT_PAGE;
+      var match = page.match(/^(c\d+)-(prompts-matrix|answers)(?:--.*)?$/);
+      if (match) load(match[1] + '-' + match[2] + '--kind=' + e.target.value);
+    });
+  }
+
+  // Карточки репутации ведут к первому примеру соответствующей категории.
+  var quoteFeed = document.querySelector('.quote-feed');
+  if (quoteFeed) {
+    [['.stat.neg', '.pill.err', 'Показать примеры негативных упоминаний'],
+     ['.stat.cau', '.pill.warn', 'Показать примеры упоминаний с оговорками']]
+      .forEach(function (config) {
+        var card = document.querySelector(config[0]);
+        if (!card) return;
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('aria-label', config[2]);
+        card.style.cursor = 'pointer';
+        function go() {
+          var marker = quoteFeed.querySelector(config[1]);
+          var target = marker ? marker.closest('.answer-row') : quoteFeed;
+          target.scrollIntoView({behavior: 'smooth', block: 'start'});
+        }
+        card.addEventListener('click', function (event) {
+          if (!event.target.closest('details')) go();
+        });
+        card.addEventListener('keydown', function (event) {
+          if (event.target === card && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault(); go();
+          }
+        });
+      });
+  }
+
   // Навигация по hash-ссылкам внутри расшифрованных страниц.
   document.addEventListener('click', function (e) {
     var a = e.target.closest && e.target.closest('a[href^="#"]');
     if (!a) return;
     var href = a.getAttribute('href');
     if (href === '#' || href === '#main') return;
-    e.preventDefault();
     var slug = href.replace(/^#/, '');
+    // Внутристраничные якоря (#src-N, #sources на страницах ответов):
+    // цель есть в текущем документе — прокручиваем к ней сами, не трогая
+    // location.hash, чтобы не потерять #k=ключ и не сработал hashchange.
+    var anchorTarget = document.getElementById(slug);
+    if (anchorTarget) {
+      e.preventDefault();
+      anchorTarget.scrollIntoView({ block: 'start' });
+      return;
+    }
+    e.preventDefault();
     load(slug === '' ? currentPage() : slug);
   });
 
