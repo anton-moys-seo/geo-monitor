@@ -57,13 +57,28 @@
   }
 
   var loading = false;
+  var loadSequence = 0;
 
-  function load(slug) {
+  function load(slug, pushHistory) {
     var key = getKey();
     if (!key) { location.hash = ''; return; }
-    if (loading) return;
+    var sequence = ++loadSequence;
     loading = true;
     slug = slug || currentPage() || DEFAULT_PAGE;
+    // При смене периода или типа промптов на экране ответов сохраняем
+    // локальные переключатели: они фильтруют уже расшифрованный срез.
+    var outgoing = document.querySelector('.answer-filters');
+    var from = (currentPage() || '').match(/^(c\d+)-answers(?:--|$)/);
+    var to = slug.match(/^(c\d+)-answers(?:--|$)/);
+    if (outgoing && from && to && from[1] === to[1]) {
+      var selection = {};
+      ['brand', 'tone', 'cited'].forEach(function (name) {
+        selection[name] = outgoing.querySelector('[name=' + name + ']:checked')?.value || '';
+      });
+      sessionStorage.setItem('geoPendingAnswerFilters', JSON.stringify(selection));
+    } else {
+      sessionStorage.removeItem('geoPendingAnswerFilters');
+    }
     fetch('p/' + encodeURIComponent(slug) + '.enc', { cache: 'no-store' })
       .then(function (r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -79,8 +94,11 @@
           .then(function (plain) { return gunzip(new Uint8Array(plain)); });
       })
       .then(function (html) {
-        history.replaceState(null, '', '#k=' + encodeURIComponent(key) +
-          (slug ? '&p=' + encodeURIComponent(slug) : ''));
+        if (sequence !== loadSequence) return;
+        var nextHash = '#k=' + encodeURIComponent(key) +
+          (slug ? '&p=' + encodeURIComponent(slug) : '');
+        if (pushHistory && location.hash !== nextHash) history.pushState(null, '', nextHash);
+        else history.replaceState(null, '', nextHash);
         document.open();
         document.write(html);
         document.close();
@@ -88,6 +106,7 @@
         window.scrollTo(0, 0);
       })
       .catch(function (e) {
+        if (sequence !== loadSequence) return;
         loading = false;
         if (slug === '_stub') {
           document.open();
@@ -122,7 +141,19 @@
 
   // Фильтры ответов выполняются по всем строкам выбранного среза снимка.
   var answerForm = document.querySelector('.answer-filters');
-  if (answerForm && document.querySelector('.feed-item[data-brand]')) {
+  if (answerForm) {
+    var pendingAnswers = sessionStorage.getItem('geoPendingAnswerFilters');
+    sessionStorage.removeItem('geoPendingAnswerFilters');
+    if (pendingAnswers) {
+      try {
+        var selected = JSON.parse(pendingAnswers);
+        ['brand', 'tone', 'cited'].forEach(function (name) {
+          var item = Array.from(answerForm.querySelectorAll('input[name=' + name + ']'))
+            .find(function (radio) { return radio.value === selected[name]; });
+          if (item) item.checked = true;
+        });
+      } catch (_) { /* Оставляем значения текущего среза. */ }
+    }
     function filterAnswers() {
       var brand = answerForm.querySelector('[name=brand]:checked')?.value || '';
       var tone = answerForm.querySelector('[name=tone]:checked')?.value || '';
@@ -145,24 +176,16 @@
       var empty = document.getElementById('snapshot-empty-answers');
       if (empty) empty.hidden = count !== 0;
     }
-    var emptyAnswers = document.createElement('div');
-    emptyAnswers.id = 'snapshot-empty-answers';
-    emptyAnswers.className = 'empty';
-    emptyAnswers.textContent = 'Ничего не найдено. Попробуйте убрать часть фильтров.';
-    emptyAnswers.hidden = true;
-    document.querySelector('.feed').appendChild(emptyAnswers);
+    if (document.querySelector('.feed-item[data-brand]')) {
+      var emptyAnswers = document.createElement('div');
+      emptyAnswers.id = 'snapshot-empty-answers';
+      emptyAnswers.className = 'empty';
+      emptyAnswers.textContent = 'Ничего не найдено. Попробуйте убрать часть фильтров.';
+      emptyAnswers.hidden = true;
+      document.querySelector('.feed').appendChild(emptyAnswers);
+    }
     answerForm.addEventListener('change', filterAnswers);
     filterAnswers();
-  }
-
-  var kindFilter = document.querySelector('.filterbar input[name=kind]');
-  if (kindFilter) {
-    kindFilter.form.addEventListener('change', function (e) {
-      if (e.target.name !== 'kind') return;
-      var page = currentPage() || DEFAULT_PAGE;
-      var match = page.match(/^(c\d+)-(prompts-matrix|answers)(?:--.*)?$/);
-      if (match) load(match[1] + '-' + match[2] + '--kind=' + e.target.value);
-    });
   }
 
   // Карточки репутации ведут к первому примеру соответствующей категории.
@@ -198,7 +221,7 @@
     var a = e.target.closest && e.target.closest('a[href^="#"]');
     if (!a) return;
     var href = a.getAttribute('href');
-    if (href === '#' || href === '#main') return;
+    if (href === '#') return;
     var slug = href.replace(/^#/, '');
     // Внутристраничные якоря (#src-N, #sources на страницах ответов):
     // цель есть в текущем документе — прокручиваем к ней сами, не трогая
@@ -210,7 +233,23 @@
       return;
     }
     e.preventDefault();
-    load(slug === '' ? currentPage() : slug);
+    if (slug === '_stub') {
+      toast('Эта функция недоступна в статическом снимке.');
+      return;
+    }
+    // Общие срезы сохраняются при переходе между основными разделами.
+    var destination = slug.match(/^(c\d+)-(overview|prompts-matrix|answers|competitors|sources|reputation)$/);
+    var activePage = currentPage() || '';
+    var filterBar = document.querySelector('.filterbar[data-period][data-kind]');
+    if (destination && a.closest('#main-nav') && filterBar &&
+        activePage.indexOf(destination[1] + '-') === 0) {
+      var period = filterBar.dataset.period;
+      var kind = filterBar.dataset.kind;
+      if (/^(last|7d|30d|90d|all)$/.test(period) && /^(all|general|brand)$/.test(kind)) {
+        slug = destination[1] + '-' + destination[2] + '--kind=' + kind + '_period=' + period;
+      }
+    }
+    load(slug === '' ? currentPage() : slug, true);
   });
 
   // Формы и действия в снапшоне не работают.
@@ -219,10 +258,20 @@
     toast('В снапшоне недоступно: это просмотр данных. Действия — в живом инструменте.');
   }, true);
 
+  window.addEventListener('popstate', function () {
+    if (loading || !getKey()) return;
+    var raw = location.hash.slice(1);
+    if (raw && document.getElementById(raw)) return;
+    load(currentPage() || (/^c\d+-/.test(raw) ? raw : DEFAULT_PAGE));
+  });
   window.addEventListener('hashchange', function () {
+    if (loading) return;
     var p = currentPage();
-    if (p && !loading) load(p);
-    else if (!p && getKey() && !loading) load(DEFAULT_PAGE);
+    var raw = location.hash.slice(1);
+    if (p) load(p);
+    else if (/^c\d+-/.test(raw) && getKey()) load(raw);
+    else if (raw && document.getElementById(raw)) return;
+    else if (getKey()) load(DEFAULT_PAGE);
   });
 
   // Первый экран: если ключ уже есть в ссылке — открываем сохранённую страницу.

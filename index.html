@@ -56,9 +56,9 @@ function withKey(){
   if(!k){m.textContent='Введите ключ.';m.hidden=false;return}
   sessionStorage.setItem('geoKey',k);
   location.hash='k='+encodeURIComponent(k);
-  load('c2-overview');
+  location.reload();
 }
 </script>
-<script src="assets/router.js"></script>
+<script src="assets/router.js?v=c7673adda328"></script>
 </body>
 </html>
