@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>GEO-монитор</title>
+<meta name="geo-ops-repo" content="anton-moys-seo/geo-monitor-app">
+<style>
+  :root{--brand:#5B3DF5;--text:#121433;--muted:#5D6483;--bg:#F3F4F9;--dark:#11122E;--border:#D9DCE8}
+  *{box-sizing:border-box}
+  body{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;margin:0;
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:var(--bg);color:var(--text)}
+  .card{width:min(460px,calc(100vw - 32px));background:#fff;border:1px solid var(--border);
+    border-radius:12px;padding:28px;box-shadow:0 8px 24px rgba(18,20,51,.08)}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .mark{width:46px;height:46px;border-radius:10px;background:var(--dark);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:700;
+    font-size:15px;letter-spacing:.5px;flex:none}
+  .brand b{font-size:17px;display:block;line-height:1.25}
+  .brand small{color:var(--muted);font-size:12.5px;line-height:1.3;display:block}
+  h1{font-size:18px;margin:0 0 8px}
+  p{color:var(--muted);line-height:1.55;margin:8px 0;font-size:14px}
+  code{background:var(--bg);border-radius:4px;padding:1px 5px;font-size:12.5px}
+  input{width:100%;padding:10px 12px;border:1px solid #c6cbdc;border-radius:8px;
+    font-size:14px;margin-top:14px;color:var(--text)}
+  input:focus{outline:2px solid var(--brand);outline-offset:-1px;border-color:var(--brand)}
+  button{width:100%;padding:10px 12px;margin-top:10px;border:0;border-radius:8px;
+    background:var(--brand);color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+  button:hover{filter:brightness(1.07)}
+  .err{color:#C92F35;font-size:13px;margin-top:10px}
+  .foot{margin-top:16px;padding-top:14px;border-top:1px solid var(--bg);
+    color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:8px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand">
+    <div class="mark">GEO</div>
+    <div><b>GEO-монитор</b><small>видимость бренда в ответах нейросетей</small></div>
+  </div>
+  <h1>Данные от 13.11.2026</h1>
+  <p>Зашифрованная версия инструмента: данные обновляются GitHub Actions
+  по расписанию и по действиям команды. Откройте ссылку, которой поделилась
+  команда: ключ доступа находится в ней после <code>#k=</code> и
+  расшифровывает данные прямо в браузере, на сервер не передаётся.</p>
+  <p>Если у вас только ключ — вставьте его сюда:</p>
+  <input id="key" placeholder="Ключ доступа" autocomplete="off">
+  <button onclick="withKey()">Открыть отчёт</button>
+  <div class="err" id="msg" hidden></div>
+  <div class="foot"><span>Интерфейс v4</span><span>AES-256-GCM</span></div>
+</div>
+<script>
+function withKey(){
+  var k=document.getElementById('key').value.trim();
+  var m=document.getElementById('msg');
+  if(!k){m.textContent='Введите ключ.';m.hidden=false;return}
+  sessionStorage.setItem('geoKey',k);
+  location.hash='k='+encodeURIComponent(k);
+  location.reload();
+}
+</script>
+<script src="assets/router.js?v=e37b743b8080"></script>
+</body>
+</html>
